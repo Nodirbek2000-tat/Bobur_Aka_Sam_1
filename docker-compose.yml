@@ -6,9 +6,29 @@ services:
     container_name: Bobur_aka_2
     environment:
       - BOT_TOKEN=${BOT_TOKEN}
+      - ADMINS=${ADMINS}
+      - DB_HOST=hermes_db
+      - DB_PORT=5432
+      - DB_NAME=survey_bot
+      - DB_USER=postgres
+      - DB_PASSWORD=123
     volumes:
-      - ./data:/app/data  # Ma'lumotlarni saqlash uchun jild
-    restart: unless-stopped  # Konteyner o'chganda avto-qayta ishga tushadi
+      - ./data:/app/data
+    restart: unless-stopped
+    depends_on:
+      - hermes_db
+
+  hermes_db:
+    image: postgres:15
+    container_name: hermes_db
+    environment:
+      - POSTGRES_DB=survey_bot
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
 
 volumes:
-  data:  # Ma'lumotlarni saqlash uchun nomlangan jild
+  data:
+  postgres_data:
