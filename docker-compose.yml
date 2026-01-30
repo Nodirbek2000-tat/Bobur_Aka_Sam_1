@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: Bobur_aka_22
+    container_name: Bobur_aka_2
     environment:
       - BOT_TOKEN=${BOT_TOKEN}
     volumes:
