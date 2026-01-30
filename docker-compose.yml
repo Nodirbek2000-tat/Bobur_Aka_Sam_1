@@ -1,4 +1,22 @@
 services:
+  postgres:
+    image: postgres:13-alpine
+    container_name: postgres_db
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASS}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   bot:
     build:
       context: .
@@ -6,9 +24,18 @@ services:
     container_name: Bobur_aka_2
     environment:
       - BOT_TOKEN=${BOT_TOKEN}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASS=${DB_PASS}
     volumes:
-      - ./data:/app/data  # Ma'lumotlarni saqlash uchun jild
-    restart: unless-stopped  # Konteyner o'chganda avto-qayta ishga tushadi
+      - ./data:/app/data
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
-  data:  # Ma'lumotlarni saqlash uchun nomlangan jild
+  postgres_data:
+  data:
