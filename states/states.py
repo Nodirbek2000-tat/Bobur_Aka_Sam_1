@@ -36,3 +36,13 @@ class SurveyEditState(StatesGroup):
     """So'rovnomani tahrirlash"""
     edit_name = State()
     edit_field = State()
+
+
+
+class BroadcastStates(StatesGroup):
+    waiting_for_text = State()
+    waiting_for_files = State()
+    waiting_for_images = State()
+    waiting_for_link = State()
+    waiting_for_link_name = State()
+    confirm = State()
