@@ -14,7 +14,7 @@ class Database:
     async def create(self):
         self.pool = await asyncpg.create_pool(
             user=config.DB_USER,
-            password=config.DB_PASS,
+            password=config.DB_PASSWORD,
             host=config.DB_HOST,
             database=config.DB_NAME,
             port=config.DB_PORT,
