@@ -1,18 +1,17 @@
+
 services:
   postgres:
-    image: postgres:13-alpine
-    container_name: postgres_db
+    image: postgres:15-alpine
+    container_name: SurveyBot_DB
     environment:
-      - POSTGRES_DB=${DB_NAME}
-      - POSTGRES_USER=${DB_USER}
-      - POSTGRES_PASSWORD=${DB_PASS}
+      POSTGRES_DB: survey_bot
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASS}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -21,21 +20,20 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: Bobur_aka_2
+    container_name: SurveyBot_Bot
     environment:
       - BOT_TOKEN=${BOT_TOKEN}
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_NAME=${DB_NAME}
-      - DB_USER=${DB_USER}
+      - DB_NAME=survey_bot
+      - DB_USER=postgres
       - DB_PASS=${DB_PASS}
     volumes:
       - ./data:/app/data
-    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   postgres_data:
-  data:

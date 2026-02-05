@@ -3,6 +3,7 @@ import asyncpg
 from asyncpg import Connection
 from asyncpg.pool import Pool
 import json
+from datetime import datetime, timedelta
 
 from data import config
 
@@ -62,6 +63,7 @@ class Database:
             id SERIAL PRIMARY KEY,
             telegram_id BIGINT NOT NULL UNIQUE,
             is_super BOOLEAN DEFAULT FALSE,
+            added_by BIGINT NULL,
             added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """
@@ -74,6 +76,50 @@ class Database:
             channel_name VARCHAR(255) NOT NULL,
             channel_username VARCHAR(255) NOT NULL UNIQUE,
             added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+        await self.execute(sql, execute=True)
+
+    async def create_table_user_profiles(self):
+        sql = """
+        CREATE TABLE IF NOT EXISTS user_profiles (
+            id SERIAL PRIMARY KEY,
+            telegram_id BIGINT NOT NULL UNIQUE,
+            first_name VARCHAR(255) NOT NULL,
+            last_name VARCHAR(255) NOT NULL,
+            birth_date DATE NOT NULL,
+            address TEXT NOT NULL,
+            is_approved BOOLEAN DEFAULT FALSE,
+            is_rejected BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            approved_at TIMESTAMP NULL,
+            rejected_at TIMESTAMP NULL
+        );
+        """
+        await self.execute(sql, execute=True)
+
+    async def create_table_initial_questions(self):
+        sql = """
+        CREATE TABLE IF NOT EXISTS initial_questions (
+            id SERIAL PRIMARY KEY,
+            question_text TEXT NOT NULL,
+            field_type VARCHAR(50) DEFAULT 'text',
+            options TEXT[] NULL,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+        await self.execute(sql, execute=True)
+
+    async def create_table_initial_responses(self):
+        sql = """
+        CREATE TABLE IF NOT EXISTS initial_responses (
+            id SERIAL PRIMARY KEY,
+            profile_id INTEGER REFERENCES user_profiles(id) ON DELETE CASCADE,
+            question_id INTEGER REFERENCES initial_questions(id) ON DELETE CASCADE,
+            answer TEXT NOT NULL,
+            answer_type VARCHAR(50) DEFAULT 'text',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """
         await self.execute(sql, execute=True)
@@ -121,6 +167,9 @@ class Database:
         await self.create_table_users()
         await self.create_table_admins()
         await self.create_table_channels()
+        await self.create_table_user_profiles()
+        await self.create_table_initial_questions()
+        await self.create_table_initial_responses()
         await self.create_table_surveys()
         await self.create_table_survey_fields()
         await self.create_table_survey_responses()
@@ -160,14 +209,14 @@ class Database:
 
     # ==================== ADMINS ====================
 
-    async def add_admin(self, telegram_id: int, is_super: bool = False):
+    async def add_admin(self, telegram_id: int, is_super: bool = False, added_by: int = None):
         sql = """
-        INSERT INTO admins (telegram_id, is_super) 
-        VALUES ($1, $2) 
+        INSERT INTO admins (telegram_id, is_super, added_by) 
+        VALUES ($1, $2, $3) 
         ON CONFLICT (telegram_id) DO UPDATE SET is_super = $2
         RETURNING *;
         """
-        return await self.execute(sql, telegram_id, is_super, fetchrow=True)
+        return await self.execute(sql, telegram_id, is_super, added_by, fetchrow=True)
 
     async def remove_admin(self, telegram_id: int):
         sql = "DELETE FROM admins WHERE telegram_id = $1 AND is_super = FALSE RETURNING *;"
@@ -215,6 +264,115 @@ class Database:
     async def count_channels(self):
         sql = "SELECT COUNT(*) FROM channels;"
         return await self.execute(sql, fetchval=True)
+
+    # ==================== USER PROFILES ====================
+
+    async def add_user_profile(self, telegram_id: int, first_name: str, last_name: str, birth_date, address: str):
+        sql = """
+        INSERT INTO user_profiles (telegram_id, first_name, last_name, birth_date, address) 
+        VALUES ($1, $2, $3, $4, $5) 
+        ON CONFLICT (telegram_id) DO UPDATE SET
+            first_name = $2,
+            last_name = $3,
+            birth_date = $4,
+            address = $5,
+            is_approved = FALSE,
+            is_rejected = FALSE,
+            created_at = CURRENT_TIMESTAMP
+        RETURNING *;
+        """
+        return await self.execute(sql, telegram_id, first_name, last_name, birth_date, address, fetchrow=True)
+
+    async def get_user_profile(self, telegram_id: int):
+        sql = "SELECT * FROM user_profiles WHERE telegram_id = $1;"
+        return await self.execute(sql, telegram_id, fetchrow=True)
+
+    async def get_user_profile_by_id(self, profile_id: int):
+        sql = "SELECT * FROM user_profiles WHERE id = $1;"
+        return await self.execute(sql, profile_id, fetchrow=True)
+
+    async def approve_user_profile(self, profile_id: int):
+        sql = """
+        UPDATE user_profiles 
+        SET is_approved = TRUE, is_rejected = FALSE, approved_at = CURRENT_TIMESTAMP 
+        WHERE id = $1 
+        RETURNING *;
+        """
+        return await self.execute(sql, profile_id, fetchrow=True)
+
+    async def reject_user_profile(self, profile_id: int):
+        sql = """
+        UPDATE user_profiles 
+        SET is_rejected = TRUE, is_approved = FALSE, rejected_at = CURRENT_TIMESTAMP 
+        WHERE id = $1 
+        RETURNING *;
+        """
+        return await self.execute(sql, profile_id, fetchrow=True)
+
+    async def get_pending_approvals(self):
+        sql = "SELECT * FROM user_profiles WHERE is_approved = FALSE AND is_rejected = FALSE ORDER BY created_at ASC;"
+        return await self.execute(sql, fetch=True)
+
+    async def count_pending_approvals(self):
+        sql = "SELECT COUNT(*) FROM user_profiles WHERE is_approved = FALSE AND is_rejected = FALSE;"
+        return await self.execute(sql, fetchval=True)
+
+    async def count_approved_users(self):
+        sql = "SELECT COUNT(*) FROM user_profiles WHERE is_approved = TRUE;"
+        return await self.execute(sql, fetchval=True)
+
+    async def count_rejected_users(self):
+        sql = "SELECT COUNT(*) FROM user_profiles WHERE is_rejected = TRUE;"
+        return await self.execute(sql, fetchval=True)
+
+    # ==================== INITIAL QUESTIONS ====================
+
+    async def add_initial_question(self, question_text: str, field_type: str = 'text', options: List[str] = None,
+                                   is_active: bool = True):
+        sql = """
+        INSERT INTO initial_questions (question_text, field_type, options, is_active) 
+        VALUES ($1, $2, $3, $4) 
+        RETURNING *;
+        """
+        return await self.execute(sql, question_text, field_type, options, is_active, fetchrow=True)
+
+    async def get_initial_question(self, question_id: int):
+        sql = "SELECT * FROM initial_questions WHERE id = $1;"
+        return await self.execute(sql, question_id, fetchrow=True)
+
+    async def get_all_initial_questions(self):
+        sql = "SELECT * FROM initial_questions ORDER BY created_at ASC;"
+        return await self.execute(sql, fetch=True)
+
+    async def get_active_initial_questions(self):
+        sql = "SELECT * FROM initial_questions WHERE is_active = TRUE ORDER BY created_at ASC;"
+        return await self.execute(sql, fetch=True)
+
+    async def toggle_initial_question(self, question_id: int, is_active: bool):
+        sql = "UPDATE initial_questions SET is_active = $2 WHERE id = $1 RETURNING *;"
+        return await self.execute(sql, question_id, is_active, fetchrow=True)
+
+    async def delete_initial_question(self, question_id: int):
+        sql = "DELETE FROM initial_questions WHERE id = $1 RETURNING *;"
+        return await self.execute(sql, question_id, fetchrow=True)
+
+    # ==================== INITIAL RESPONSES ====================
+
+    async def add_initial_response(self, profile_id: int, question_id: int, answer, answer_type: str = 'text'):
+        # Agar answer dict yoki list bo'lsa, JSON'ga aylantirish
+        if isinstance(answer, (dict, list)):
+            answer = json.dumps(answer)
+
+        sql = """
+        INSERT INTO initial_responses (profile_id, question_id, answer, answer_type) 
+        VALUES ($1, $2, $3, $4) 
+        RETURNING *;
+        """
+        return await self.execute(sql, profile_id, question_id, answer, answer_type, fetchrow=True)
+
+    async def get_initial_responses(self, profile_id: int):
+        sql = "SELECT * FROM initial_responses WHERE profile_id = $1 ORDER BY created_at ASC;"
+        return await self.execute(sql, profile_id, fetch=True)
 
     # ==================== SURVEYS ====================
 

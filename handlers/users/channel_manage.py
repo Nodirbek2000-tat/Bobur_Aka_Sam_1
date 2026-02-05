@@ -78,7 +78,8 @@ async def callback_cancel_add_channel(callback: types.CallbackQuery, state: FSMC
     await callback.answer()
 
 
-@dp.message_handler(commands=['cancel'], state=ChannelState.add_channel)
+# Cancel buyrug'i FAQAT LICHKADA
+@dp.message_handler(chat_type=types.ChatType.PRIVATE, commands=['cancel'], state=ChannelState.add_channel)
 async def cmd_cancel_channel(message: types.Message, state: FSMContext):
     """Kanal qo'shishni /cancel bilan bekor qilish"""
     await state.finish()
@@ -89,7 +90,8 @@ async def cmd_cancel_channel(message: types.Message, state: FSMContext):
     )
 
 
-@dp.message_handler(state=ChannelState.add_channel)
+# Username qabul qilish FAQAT LICHKADA
+@dp.message_handler(chat_type=types.ChatType.PRIVATE, state=ChannelState.add_channel)
 async def process_add_channel(message: types.Message, state: FSMContext):
     username = message.text.strip()
 

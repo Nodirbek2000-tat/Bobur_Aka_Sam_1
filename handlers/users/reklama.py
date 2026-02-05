@@ -11,8 +11,8 @@ async def is_admin(user_id: int) -> bool:
     return await db.is_admin(user_id)
 
 
-# /reklama buyrug'i - faqat adminlar uchun
-@dp.message_handler(commands=['reklama'])
+# /reklama buyrug'i - faqat adminlar uchun (FAQAT LICHKADA)
+@dp.message_handler(chat_type=types.ChatType.PRIVATE, commands=['elon'])
 async def start_broadcast(message: types.Message):
     # Admin check
     if not await is_admin(message.from_user.id):
@@ -26,8 +26,8 @@ async def start_broadcast(message: types.Message):
     await BroadcastStates.waiting_for_text.set()
 
 
-# Matnni qabul qilish
-@dp.message_handler(state=BroadcastStates.waiting_for_text, content_types=types.ContentTypes.TEXT)
+# Matnni qabul qilish (FAQAT LICHKADA)
+@dp.message_handler(chat_type=types.ChatType.PRIVATE, state=BroadcastStates.waiting_for_text, content_types=types.ContentTypes.TEXT)
 async def get_broadcast_text(message: types.Message, state: FSMContext):
     # Admin check
     if not await is_admin(message.from_user.id):
@@ -49,8 +49,8 @@ async def get_broadcast_text(message: types.Message, state: FSMContext):
     await BroadcastStates.waiting_for_files.set()
 
 
-# Fayllarni qabul qilish
-@dp.message_handler(state=BroadcastStates.waiting_for_files, content_types=types.ContentTypes.DOCUMENT)
+# Fayllarni qabul qilish (FAQAT LICHKADA)
+@dp.message_handler(chat_type=types.ChatType.PRIVATE, state=BroadcastStates.waiting_for_files, content_types=types.ContentTypes.DOCUMENT)
 async def get_broadcast_files(message: types.Message, state: FSMContext):
     # Admin check
     if not await is_admin(message.from_user.id):
@@ -69,7 +69,8 @@ async def get_broadcast_files(message: types.Message, state: FSMContext):
     )
 
 
-@dp.message_handler(state=BroadcastStates.waiting_for_files, commands=['done', 'skip'])
+# Fayllarni tugatish (FAQAT LICHKADA)
+@dp.message_handler(chat_type=types.ChatType.PRIVATE, state=BroadcastStates.waiting_for_files, commands=['done', 'skip'])
 async def finish_files(message: types.Message, state: FSMContext):
     # Admin check
     if not await is_admin(message.from_user.id):
@@ -89,8 +90,8 @@ async def finish_files(message: types.Message, state: FSMContext):
     await BroadcastStates.waiting_for_images.set()
 
 
-# Rasmlarni qabul qilish
-@dp.message_handler(state=BroadcastStates.waiting_for_images, content_types=types.ContentTypes.PHOTO)
+# Rasmlarni qabul qilish (FAQAT LICHKADA)
+@dp.message_handler(chat_type=types.ChatType.PRIVATE, state=BroadcastStates.waiting_for_images, content_types=types.ContentTypes.PHOTO)
 async def get_broadcast_images(message: types.Message, state: FSMContext):
     # Admin check
     if not await is_admin(message.from_user.id):
@@ -109,7 +110,8 @@ async def get_broadcast_images(message: types.Message, state: FSMContext):
     )
 
 
-@dp.message_handler(state=BroadcastStates.waiting_for_images, commands=['done', 'skip'])
+# Rasmlarni tugatish (FAQAT LICHKADA)
+@dp.message_handler(chat_type=types.ChatType.PRIVATE, state=BroadcastStates.waiting_for_images, commands=['done', 'skip'])
 async def finish_images(message: types.Message, state: FSMContext):
     # Admin check
     if not await is_admin(message.from_user.id):
@@ -127,8 +129,8 @@ async def finish_images(message: types.Message, state: FSMContext):
     await BroadcastStates.waiting_for_link.set()
 
 
-# Linkni qabul qilish
-@dp.message_handler(state=BroadcastStates.waiting_for_link, content_types=types.ContentTypes.TEXT)
+# Linkni qabul qilish (FAQAT LICHKADA)
+@dp.message_handler(chat_type=types.ChatType.PRIVATE, state=BroadcastStates.waiting_for_link, content_types=types.ContentTypes.TEXT)
 async def get_broadcast_link(message: types.Message, state: FSMContext):
     # Admin check
     if not await is_admin(message.from_user.id):
@@ -147,8 +149,8 @@ async def get_broadcast_link(message: types.Message, state: FSMContext):
         await BroadcastStates.waiting_for_link_name.set()
 
 
-# Link nomini qabul qilish
-@dp.message_handler(state=BroadcastStates.waiting_for_link_name, content_types=types.ContentTypes.TEXT)
+# Link nomini qabul qilish (FAQAT LICHKADA)
+@dp.message_handler(chat_type=types.ChatType.PRIVATE, state=BroadcastStates.waiting_for_link_name, content_types=types.ContentTypes.TEXT)
 async def get_broadcast_link_name(message: types.Message, state: FSMContext):
     # Admin check
     if not await is_admin(message.from_user.id):

@@ -55,7 +55,7 @@ async def callback_create_survey(callback: types.CallbackQuery, state: FSMContex
     await callback.answer()
 
 
-@dp.message_handler(state=SurveyCreateState.name)
+@dp.message_handler(chat_type=types.ChatType.PRIVATE, state=SurveyCreateState.name)
 async def process_survey_name(message: types.Message, state: FSMContext):
     await state.update_data(
         survey_name=message.text,
@@ -66,15 +66,15 @@ async def process_survey_name(message: types.Message, state: FSMContext):
 
     await message.answer(
         "✅ So'rovnoma nomi: <b>" + message.text + "</b>\n\n"
-        "Endi ustunlarni qo'shamiz.\n\n"
-        "📌 <b>1-ustun nomini kiriting:</b>\n"
-        "<i>(Masalan: F.I.Sh)</i>"
+                                                  "Endi ustunlarni qo'shamiz.\n\n"
+                                                  "📌 <b>1-ustun nomini kiriting:</b>\n"
+                                                  "<i>(Masalan: F.I.Sh)</i>"
     )
 
     await SurveyCreateState.column_name.set()
 
 
-@dp.message_handler(state=SurveyCreateState.column_name)
+@dp.message_handler(chat_type=types.ChatType.PRIVATE, state=SurveyCreateState.column_name)
 async def process_column_name(message: types.Message, state: FSMContext):
     data = await state.get_data()
     field_num = len(data.get('fields', [])) + 1
@@ -92,7 +92,7 @@ async def process_column_name(message: types.Message, state: FSMContext):
     await SurveyCreateState.question_text.set()
 
 
-@dp.message_handler(state=SurveyCreateState.question_text)
+@dp.message_handler(chat_type=types.ChatType.PRIVATE, state=SurveyCreateState.question_text)
 async def process_question_text(message: types.Message, state: FSMContext):
     data = await state.get_data()
     current_field = data.get('current_field', {})
@@ -128,8 +128,19 @@ async def process_field_type_text(callback: types.CallbackQuery, state: FSMConte
 
     text = "✅ <b>Ustun qo'shildi!</b>\n\n"
     text += "📋 <b>Qo'shilgan ustunlar:</b>\n"
+
     for i, f in enumerate(fields, 1):
-        field_type = "📝 Matn" if f['field_type'] == 'text' else "🔘 Variantlar"
+        if f['field_type'] == 'text':
+            field_type = "📝 Matn"
+        elif f['field_type'] == 'choice':
+            field_type = "🔘 Variantlar"
+        elif f['field_type'] == 'photo':
+            field_type = "📷 Rasm"
+        elif f['field_type'] == 'location':
+            field_type = "📍 Lokatsiya"
+        else:
+            field_type = "❓ Noma'lum"
+
         text += f"{i}. {f['column_name']} ({field_type})\n"
 
     text += "\nYana ustun qo'shasizmi?"
@@ -160,7 +171,85 @@ async def process_field_type_choice(callback: types.CallbackQuery, state: FSMCon
     await callback.answer()
 
 
-@dp.message_handler(state=SurveyCreateState.add_option)
+@dp.callback_query_handler(text="field_type:photo", state=SurveyCreateState.field_type)
+async def process_field_type_photo(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    current_field = data.get('current_field', {})
+    current_field['field_type'] = 'photo'
+    current_field['options'] = None
+
+    fields = data.get('fields', [])
+    fields.append(current_field)
+
+    await state.update_data(
+        fields=fields,
+        current_field={},
+        current_options=[]
+    )
+
+    text = "✅ <b>Ustun qo'shildi!</b>\n\n"
+    text += "📋 <b>Qo'shilgan ustunlar:</b>\n"
+
+    for i, f in enumerate(fields, 1):
+        if f['field_type'] == 'text':
+            field_type = "📝 Matn"
+        elif f['field_type'] == 'choice':
+            field_type = "🔘 Variantlar"
+        elif f['field_type'] == 'photo':
+            field_type = "📷 Rasm"
+        elif f['field_type'] == 'location':
+            field_type = "📍 Lokatsiya"
+        else:
+            field_type = "❓ Noma'lum"
+
+        text += f"{i}. {f['column_name']} ({field_type})\n"
+
+    text += "\nYana ustun qo'shasizmi?"
+
+    await callback.message.edit_text(text, reply_markup=get_add_more_fields_keyboard())
+    await callback.answer()
+
+
+@dp.callback_query_handler(text="field_type:location", state=SurveyCreateState.field_type)
+async def process_field_type_location(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    current_field = data.get('current_field', {})
+    current_field['field_type'] = 'location'
+    current_field['options'] = None
+
+    fields = data.get('fields', [])
+    fields.append(current_field)
+
+    await state.update_data(
+        fields=fields,
+        current_field={},
+        current_options=[]
+    )
+
+    text = "✅ <b>Ustun qo'shildi!</b>\n\n"
+    text += "📋 <b>Qo'shilgan ustunlar:</b>\n"
+
+    for i, f in enumerate(fields, 1):
+        if f['field_type'] == 'text':
+            field_type = "📝 Matn"
+        elif f['field_type'] == 'choice':
+            field_type = "🔘 Variantlar"
+        elif f['field_type'] == 'photo':
+            field_type = "📷 Rasm"
+        elif f['field_type'] == 'location':
+            field_type = "📍 Lokatsiya"
+        else:
+            field_type = "❓ Noma'lum"
+
+        text += f"{i}. {f['column_name']} ({field_type})\n"
+
+    text += "\nYana ustun qo'shasizmi?"
+
+    await callback.message.edit_text(text, reply_markup=get_add_more_fields_keyboard())
+    await callback.answer()
+
+
+@dp.message_handler(chat_type=types.ChatType.PRIVATE, state=SurveyCreateState.add_option)
 async def process_add_option(message: types.Message, state: FSMContext):
     data = await state.get_data()
     options = data.get('current_options', [])
@@ -216,8 +305,12 @@ async def callback_finish_options(callback: types.CallbackQuery, state: FSMConte
     for i, f in enumerate(fields, 1):
         if f['field_type'] == 'text':
             text += f"{i}. {f['column_name']} (📝 Matn)\n"
-        else:
+        elif f['field_type'] == 'choice':
             text += f"{i}. {f['column_name']} (🔘 {len(f['options'])} variant)\n"
+        elif f['field_type'] == 'photo':
+            text += f"{i}. {f['column_name']} (📷 Rasm)\n"
+        elif f['field_type'] == 'location':
+            text += f"{i}. {f['column_name']} (📍 Lokatsiya)\n"
 
     text += "\nYana ustun qo'shasizmi?"
 
@@ -260,7 +353,7 @@ async def callback_finish_fields(callback: types.CallbackQuery, state: FSMContex
     await callback.answer()
 
 
-@dp.message_handler(state=SurveyCreateState.file_name)
+@dp.message_handler(chat_type=types.ChatType.PRIVATE, state=SurveyCreateState.file_name)
 async def process_file_name(message: types.Message, state: FSMContext):
     file_name = message.text.strip()
 
@@ -297,9 +390,11 @@ async def process_file_name(message: types.Message, state: FSMContext):
         cell.font = Font(bold=True)
         cell.alignment = Alignment(wrap_text=True, vertical='center', horizontal='center')
         cell.border = border
-        ws.column_dimensions[chr(64 + col)].width = 20
 
-    # Windows va Linux uchun mos temp papka
+        # Ustun kengligini belgilash
+        col_letter = cell.column_letter
+        ws.column_dimensions[col_letter].width = 20
+
     file_path = os.path.join(tempfile.gettempdir(), file_name)
     wb.save(file_path)
 
@@ -356,7 +451,13 @@ async def callback_confirm_create(callback: types.CallbackQuery, state: FSMConte
 async def callback_cancel_create(callback: types.CallbackQuery, state: FSMContext):
     await state.finish()
 
-    await callback.message.edit_text(
+    # ✅ Document xabarini o'chirish va yangi xabar yuborish
+    try:
+        await callback.message.delete()
+    except:
+        pass
+
+    await callback.message.answer(
         "❌ Bekor qilindi.\n\n"
         "/admin - Admin panel"
     )

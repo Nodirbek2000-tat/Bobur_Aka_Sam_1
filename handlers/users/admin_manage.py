@@ -19,10 +19,14 @@ async def callback_admins_menu(callback: types.CallbackQuery, state: FSMContext)
         return
 
     admins = await db.get_all_admins()
+    super_admins_count = sum(1 for a in admins if a['is_super'])
+    regular_admins_count = len(admins) - super_admins_count
 
     text = (
         "👥 <b>ADMINLAR</b>\n\n"
-        f"📊 Jami: <b>{len(admins)}</b> ta"
+        f"📊 Jami: <b>{len(admins)}</b> ta\n"
+        f"👑 Super Admin: <b>{super_admins_count}</b> ta\n"
+        f"👤 Admin: <b>{regular_admins_count}</b> ta"
     )
 
     await callback.message.edit_text(text, reply_markup=get_admins_menu())
@@ -47,7 +51,7 @@ async def callback_add_admin(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-@dp.message_handler(state=AdminState.add_admin)
+@dp.message_handler(chat_type=types.ChatType.PRIVATE, state=AdminState.add_admin)
 async def process_add_admin(message: types.Message, state: FSMContext):
     try:
         new_admin_id = int(message.text.strip())
@@ -65,7 +69,8 @@ async def process_add_admin(message: types.Message, state: FSMContext):
         )
         return
 
-    await db.add_admin(telegram_id=new_admin_id, is_super=False)
+    # ✅ added_by parametri qo'shildi
+    await db.add_admin(telegram_id=new_admin_id, is_super=False, added_by=message.from_user.id)
 
     await state.finish()
 
@@ -81,6 +86,64 @@ async def process_add_admin(message: types.Message, state: FSMContext):
 
     await message.answer(
         f"✅ <b>Yangi admin qo'shildi!</b>\n\n"
+        f"🆔 ID: <code>{new_admin_id}</code>\n\n"
+        "/admin - Admin panel"
+    )
+
+
+@dp.callback_query_handler(text="admin_manage:add_super", state='*')
+async def callback_add_super_admin(callback: types.CallbackQuery, state: FSMContext):
+    await state.finish()
+
+    if not await db.is_super_admin(callback.from_user.id):
+        await callback.answer("⛔ Faqat Super Admin qo'sha oladi!", show_alert=True)
+        return
+
+    await callback.message.edit_text(
+        "👑 <b>Super Admin qo'shish</b>\n\n"
+        "Yangi Super Admin Telegram ID'sini kiriting:\n\n"
+        "<i>ID bilish uchun: @userinfobot</i>"
+    )
+
+    await AdminState.add_super_admin.set()
+    await callback.answer()
+
+
+@dp.message_handler(chat_type=types.ChatType.PRIVATE, state=AdminState.add_super_admin)
+async def process_add_super_admin(message: types.Message, state: FSMContext):
+    try:
+        new_admin_id = int(message.text.strip())
+    except ValueError:
+        await message.answer(
+            "❌ Noto'g'ri ID!\n"
+            "Faqat raqam kiriting yoki /cancel bosing."
+        )
+        return
+
+    if await db.is_admin(new_admin_id):
+        await message.answer(
+            "⚠️ Bu foydalanuvchi allaqachon admin!\n\n"
+            "Boshqa ID kiriting yoki /cancel bosing."
+        )
+        return
+
+    # ✅ added_by parametri qo'shildi
+    await db.add_admin(telegram_id=new_admin_id, is_super=True, added_by=message.from_user.id)
+
+    await state.finish()
+
+    try:
+        await bot.send_message(
+            new_admin_id,
+            "🎉 <b>Tabriklaymiz!</b>\n\n"
+            "Siz Super Admin sifatida tayinlandingiz!\n"
+            "Admin panel: /admin"
+        )
+    except:
+        pass
+
+    await message.answer(
+        f"✅ <b>Yangi Super Admin qo'shildi!</b>\n\n"
         f"🆔 ID: <code>{new_admin_id}</code>\n\n"
         "/admin - Admin panel"
     )
@@ -148,9 +211,12 @@ async def callback_view_admin(callback: types.CallbackQuery, state: FSMContext):
         f"📅 Qo'shilgan: {admin['added_at'].strftime('%d.%m.%Y')}"
     )
 
+    # Adminni qo'shgan kishi
+    is_creator = admin.get('added_by') == callback.from_user.id if admin.get('added_by') else False
+
     await callback.message.edit_text(
         text,
-        reply_markup=get_admin_actions(admin_id, admin['is_super'])
+        reply_markup=get_admin_actions(admin_id, admin['is_super'], is_creator)
     )
     await callback.answer()
 
@@ -170,6 +236,11 @@ async def callback_delete_admin(callback: types.CallbackQuery):
 
     if admin['is_super']:
         await callback.answer("⛔ Super Adminni o'chirib bo'lmaydi!", show_alert=True)
+        return
+
+    # O'zini qo'shgan adminni o'chira olmasligi
+    if admin.get('added_by') and admin['added_by'] != callback.from_user.id:
+        await callback.answer("⛔ Faqat o'zi qo'shgan adminni o'chira oladi!", show_alert=True)
         return
 
     await callback.message.edit_text(
