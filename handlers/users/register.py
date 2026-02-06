@@ -317,8 +317,9 @@ async def generate_word_document(user_id: int, response_data: dict, fields: list
     rahbar = 'Suyunboyev Alisher Isakboevich'
     tuman = 'Toyloq tumani'
     mahalla = 'U. mahallasi'
+    yosh_fish = ''
 
-    # Jadvaldan Rahbar, Tuman, Mahalla topish
+    # Jadvaldan Rahbar, Tuman, Mahalla, F.I.Sh topish
     for field in fields:
         column_name = field['column_name']
         answer = response_data.get(column_name, "")
@@ -331,6 +332,9 @@ async def generate_word_document(user_id: int, response_data: dict, fields: list
 
         if column_name == 'Mahalla nomi' and answer:
             mahalla = answer
+
+        if column_name == 'Biriktirilgan Vakilning F.I.Sh' and answer:
+            yosh_fish = answer
 
     # Rahbar (comment olingan)
     # p_rahbar = doc.add_paragraph()
@@ -345,7 +349,7 @@ async def generate_word_document(user_id: int, response_data: dict, fields: list
     p_hudud.paragraph_format.space_after = Pt(8)
 
     # Skip qilinadigan ustunlar
-    skip_columns = ['Rahbar', 'Tuman/Shahar nomi', 'Mahalla nomi']
+    skip_columns = ['Rahbar', 'Tuman/Shahar nomi', 'Mahalla nomi', 'Biriktirilgan Yoshning F.I.Sh']
 
     # Dinamik ma'lumotlar
     temp_images = []
@@ -426,10 +430,15 @@ async def generate_word_document(user_id: int, response_data: dict, fields: list
     h3.add_run("Tasdiqlaymiz:").bold = True
     h3.paragraph_format.space_after = Pt(12)
 
-    # Imzolar
+    # Imzolar - YOSH F.I.SH QO'SHILGAN
     p_imzo1 = doc.add_paragraph()
     p_imzo1.add_run("Biriktirilgan rahbar: ").bold = True
-    p_imzo1.add_run(rahbar)
+
+    if yosh_fish:
+        p_imzo1.add_run(yosh_fish)
+    else:
+        p_imzo1.add_run(rahbar)
+
     p_imzo1.paragraph_format.space_after = Pt(6)
 
     p_imzo1_sign = doc.add_paragraph("(imzo)")
