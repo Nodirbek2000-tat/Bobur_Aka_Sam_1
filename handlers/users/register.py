@@ -326,26 +326,26 @@ async def generate_word_document(user_id: int, response_data: dict, fields: list
         if column_name == 'Rahbar' and answer:
             rahbar = answer
 
-        if column_name == 'Tuman/Shahar' and answer:
+        if column_name == 'Tuman/Shahar nomi' and answer:
             tuman = answer
 
         if column_name == 'Mahalla nomi' and answer:
             mahalla = answer
 
-    # Rahbar
+    # Rahbar (comment olingan)
     # p_rahbar = doc.add_paragraph()
     # p_rahbar.add_run("Rahbar: ").bold = True
     # p_rahbar.add_run(rahbar)
     # p_rahbar.paragraph_format.space_after = Pt(8)
 
-    # Hudud
+    # Hudud - TUMAN, MAHALLA
     p_hudud = doc.add_paragraph()
     p_hudud.add_run("Hudud: ").bold = True
     p_hudud.add_run(f"{tuman}, {mahalla}")
     p_hudud.paragraph_format.space_after = Pt(8)
 
     # Skip qilinadigan ustunlar
-    skip_columns = ['Rahbar', 'Tuman/Shahar', 'Mahalla nomi']
+    skip_columns = ['Rahbar', 'Tuman/Shahar nomi', 'Mahalla nomi']
 
     # Dinamik ma'lumotlar
     temp_images = []
@@ -395,6 +395,7 @@ async def generate_word_document(user_id: int, response_data: dict, fields: list
     # Statik matn
     doc.add_paragraph().paragraph_format.space_after = Pt(6)
 
+    # Ko'rsatilgan yordam (comment olingan)
     # h1 = doc.add_paragraph()
     # h1.add_run("Ko'rsatilgan yordam").bold = True
     # h1.paragraph_format.space_after = Pt(8)
@@ -434,6 +435,7 @@ async def generate_word_document(user_id: int, response_data: dict, fields: list
     p_imzo1_sign = doc.add_paragraph("(imzo)")
     p_imzo1_sign.paragraph_format.space_after = Pt(20)
 
+    # Tuman, Mahalla yetakchisi
     p_imzo2 = doc.add_paragraph()
     p_imzo2.add_run(f"{tuman}, {mahalla} yetakchisi: ").bold = True
     p_imzo2.add_run("__________________________")
