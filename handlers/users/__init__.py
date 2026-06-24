@@ -6,6 +6,7 @@ from . import reklama
 from . import survey_create
 from . import survey_manage
 from . import start
+from . import yg_phone
 
 from . import initial_registration
 from . import profile
@@ -17,3 +18,5 @@ from . import initial_questions
 from . import help
 
 from . import echo
+
+from . import youthguard

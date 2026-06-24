@@ -67,3 +67,21 @@ class BroadcastStates(StatesGroup):
     waiting_for_link = State()
     waiting_for_link_name = State()
     confirm = State()
+
+
+class YouthGuardMeetingState(StatesGroup):
+    """YouthGuard - Uchrashuv yaratish"""
+    choosing_youth = State()
+    sending_location = State()
+    sending_photo = State()
+    adding_notes = State()
+
+
+class YouthGuardVerifyState(StatesGroup):
+    """YouthGuard - Tasdiqlash"""
+    reject_reason = State()
+
+
+class PhoneRegisterState(StatesGroup):
+    """YouthGuard - Telefon raqam bilan ro'yxatdan o'tish"""
+    waiting_phone = State()

@@ -8,13 +8,16 @@ from utils.set_bot_commands import set_default_commands
 
 
 async def on_startup(dispatcher):
-    # Database jadvallarini yaratish
-    await db.create()
-    await db.create_all_tables()
-
-    # Super adminni qo'shish
-    for admin_id in ADMINS:
-        await db.add_admin(telegram_id=int(admin_id), is_super=True)
+    # Database ulanishini sinab ko'rish (PostgreSQL ishlamasa ham bot ishlaydi)
+    try:
+        await db.create()
+        await db.create_all_tables()
+        for admin_id in ADMINS:
+            await db.add_admin(telegram_id=int(admin_id), is_super=True)
+        print("✅ PostgreSQL ulandi!")
+    except Exception as e:
+        print(f"⚠️  PostgreSQL ulanmadi: {e}")
+        print("⚠️  DB funksiyalar ishlamaydi, lekin bot ishlaydi!")
 
     # Bot buyruqlarini o'rnatish
     await set_default_commands(dispatcher)

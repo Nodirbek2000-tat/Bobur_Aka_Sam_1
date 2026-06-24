@@ -10,6 +10,34 @@ from keyboards.inline.buttons import get_start_keyboard
 async def cmd_start(message: types.Message, state: FSMContext):
     await state.finish()
 
+    # 1) YouthGuard: telegram_id bazada bormi tekshiramiz
+    try:
+        from utils.youthguard_api import check_telegram
+        info = await check_telegram(message.from_user.id)
+    except Exception:
+        # DRF ulanmadi — eski (so'rovnoma) rejimida ishlaymiz
+        await survey_start(message, state)
+        return
+
+    if info.get("exists"):
+        role = info.get("role")
+        if role in ("super_admin", "admin", "rahbar", "yetakchi"):
+            # YouthGuard xodimi — telefon shart emas, rol menyusi
+            from handlers.users.youthguard import show_yg_menu
+            await show_yg_menu(message, info.get("user", {}), info.get("token"))
+            return
+        if info.get("has_phone"):
+            # Oddiy, ro'yxatdan o'tgan foydalanuvchi — so'rovnoma oqimi
+            await survey_start(message, state)
+            return
+
+    # 2) Hali ro'yxatdan o'tmagan — telefon raqam so'raymiz
+    from handlers.users.yg_phone import request_phone
+    await request_phone(message, state)
+
+
+async def survey_start(message: types.Message, state: FSMContext):
+    """So'rovnoma (oddiy foydalanuvchi) oqimi — oldingi /start mantig'i."""
     # Foydalanuvchini bazaga qo'shish
     user = await db.get_user(message.from_user.id)
 

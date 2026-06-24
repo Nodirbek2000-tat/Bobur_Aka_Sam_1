@@ -10,10 +10,33 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from PIL import Image
 import io
 
+import aiohttp
 from loader import dp, db, bot
+from data.config import YOUTHGUARD_API_URL
 from states.states import RegisterState
 from utils.subscription import check_and_request_subscription
 from keyboards.inline.buttons import get_options_keyboard, get_confirm_response_keyboard
+
+
+async def create_camera_session(telegram_id: int) -> str:
+    async with aiohttp.ClientSession() as s:
+        async with s.post(f"{YOUTHGUARD_API_URL}/uchrashuvlar/api/camera/create/",
+                          json={"telegram_id": telegram_id}) as r:
+            data = await r.json()
+            return data.get("session_id", "")
+
+
+async def check_camera_session(session_id: str) -> dict:
+    async with aiohttp.ClientSession() as s:
+        async with s.get(f"{YOUTHGUARD_API_URL}/uchrashuvlar/camera/{session_id}/status/") as r:
+            return await r.json()
+
+
+async def download_camera_photo(url: str) -> bytes:
+    full = url if url.startswith("http") else f"{YOUTHGUARD_API_URL}{url}"
+    async with aiohttp.ClientSession() as s:
+        async with s.get(full) as r:
+            return await r.read()
 
 
 @dp.callback_query_handler(text="user:register", state='*')
@@ -155,11 +178,22 @@ async def send_question(message: types.Message, state: FSMContext, edit: bool = 
             await message.answer(text, reply_markup=keyboard)
 
     elif field['field_type'] == 'photo':
-        text += "\n\n📷 Rasm yuboring:"
-        if edit:
-            await message.edit_text(text)
-        else:
-            await message.answer(text)
+        text += "\n\n📷 Kameradan 1-2 ta rasm oling:"
+        try:
+            sid = await create_camera_session(message.chat.id)
+            cam_url = f"{YOUTHGUARD_API_URL}/uchrashuvlar/camera/{sid}/"
+            kb = types.InlineKeyboardMarkup()
+            kb.add(types.InlineKeyboardButton("📷 Kamerani ochish", url=cam_url))
+            kb.add(types.InlineKeyboardButton("✅ Rasmlarni yubordim", callback_data=f"camera_done:{sid}"))
+            if edit:
+                await message.edit_text(text, reply_markup=kb)
+            else:
+                await message.answer(text, reply_markup=kb)
+        except Exception:
+            if edit:
+                await message.edit_text(text + "\n\n(Server ulanmadi — oddiy rasm yuboring)")
+            else:
+                await message.answer(text + "\n\n(Server ulanmadi — oddiy rasm yuboring)")
 
     elif field['field_type'] == 'location':
         text += "\n\n📍 Lokatsiyani yuboring:"
@@ -264,6 +298,9 @@ async def process_photo_answer(message: types.Message, state: FSMContext):
         await message.answer("⚠️ Iltimos, to'g'ri formatda javob bering!")
         return
 
+    await message.answer("❌ Iltimos, oddiy rasm emas — <b>📷 Kamerani ochish</b> tugmasini bosing va kameradan oling!")
+    return
+
     answers = data.get('answers', {})
     answers[str(current)] = message.photo[-1].file_id
 
@@ -273,6 +310,28 @@ async def process_photo_answer(message: types.Message, state: FSMContext):
     )
 
     await send_question(message, state, edit=False)
+
+
+@dp.callback_query_handler(lambda c: c.data.startswith("camera_done:"), state=RegisterState.answering)
+async def camera_done_callback(callback: types.CallbackQuery, state: FSMContext):
+    session_id = callback.data.split(":", 1)[1]
+    await callback.answer("⏳ Tekshirilmoqda...")
+    try:
+        status = await check_camera_session(session_id)
+        if not status.get("is_submitted"):
+            await callback.message.answer("⚠️ Hali rasm yuborilmagan. Avval kamerani oching va rasmlarni yuboring!")
+            return
+
+        data = await state.get_data()
+        current = data['current_field']
+        answers = data.get('answers', {})
+        answers[str(current)] = f"camera://{session_id}"
+
+        await state.update_data(answers=answers, current_field=current + 1)
+        await callback.message.answer("✅ Rasmlar qabul qilindi!")
+        await send_question(callback.message, state, edit=False)
+    except Exception as e:
+        await callback.message.answer(f"❌ Server bilan bog'lanishda xato: {e}")
 
 
 @dp.message_handler(chat_type=types.ChatType.PRIVATE, state=RegisterState.answering,
@@ -374,20 +433,32 @@ async def generate_word_document(user_id: int, response_data: dict, fields: list
         # Rasm
         if field['field_type'] == 'photo' and answer:
             try:
-                file = await bot.get_file(answer)
-                downloaded_file = await bot.download_file(file.file_path)
-
-                img = Image.open(io.BytesIO(downloaded_file.read()))
-                img.thumbnail((500, 500), Image.Resampling.LANCZOS)
-
-                temp_path = os.path.join(tempfile.gettempdir(), f"temp_word_img_{i}.png")
-                img.save(temp_path, "PNG")
-                temp_images.append(temp_path)
-
-                doc.add_picture(temp_path, width=Inches(4))
-                last_p = doc.paragraphs[-1]
-                last_p.paragraph_format.space_after = Pt(10)
-
+                if str(answer).startswith("camera://"):
+                    # Web kameradan olingan rasm
+                    sid = answer.replace("camera://", "")
+                    cam_status = await check_camera_session(sid)
+                    photo_urls = [cam_status.get("photo1"), cam_status.get("photo2")]
+                    photo_urls = [u for u in photo_urls if u]
+                    for idx_p, purl in enumerate(photo_urls):
+                        img_bytes = await download_camera_photo(purl)
+                        img = Image.open(io.BytesIO(img_bytes))
+                        img.thumbnail((500, 500), Image.Resampling.LANCZOS)
+                        temp_path = os.path.join(tempfile.gettempdir(), f"temp_cam_{i}_{idx_p}.png")
+                        img.save(temp_path, "PNG")
+                        temp_images.append(temp_path)
+                        doc.add_picture(temp_path, width=Inches(4))
+                        doc.paragraphs[-1].paragraph_format.space_after = Pt(6)
+                else:
+                    # Telegram file_id
+                    file = await bot.get_file(answer)
+                    downloaded_file = await bot.download_file(file.file_path)
+                    img = Image.open(io.BytesIO(downloaded_file.read()))
+                    img.thumbnail((500, 500), Image.Resampling.LANCZOS)
+                    temp_path = os.path.join(tempfile.gettempdir(), f"temp_word_img_{i}.png")
+                    img.save(temp_path, "PNG")
+                    temp_images.append(temp_path)
+                    doc.add_picture(temp_path, width=Inches(4))
+                    doc.paragraphs[-1].paragraph_format.space_after = Pt(10)
             except Exception as e:
                 p.add_run("📷 Rasm yuklanmadi")
                 print(f"Rasm yuklashda xato: {e}")

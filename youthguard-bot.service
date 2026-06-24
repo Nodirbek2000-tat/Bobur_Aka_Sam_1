@@ -1,0 +1,27 @@
+# ===== YouthGuard bot — systemd service =====
+# Serverda quyidagi yo'lga qo'ying:  /etc/systemd/system/youthguard-bot.service
+# Keyin:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable youthguard-bot
+#   sudo systemctl start youthguard-bot
+#   sudo systemctl status youthguard-bot     # holatni ko'rish
+#   sudo journalctl -u youthguard-bot -f      # loglarni kuzatish
+#
+# DIQQAT: quyidagi yo'llarni (WorkingDirectory, ExecStart) o'z serveringizdagi
+# haqiqiy yo'lga moslang. Misol: /root/Bobur_aka_2
+
+[Unit]
+Description=YouthGuard Telegram Bot
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/Bobur_aka_2
+ExecStart=/root/Bobur_aka_2/venv/bin/python app.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
