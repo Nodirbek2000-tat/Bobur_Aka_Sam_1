@@ -17,6 +17,7 @@ from . import initial_questions
 
 from . import help
 
-from . import echo
-
+# youthguard echo dan OLDIN bo'lishi shart (tugmalarni echo o'g'irlab qolmasligi uchun)
 from . import youthguard
+
+from . import echo

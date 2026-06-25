@@ -78,7 +78,7 @@ async def create_meeting(token: str, payload: dict) -> dict:
             data.add_field(key, str(val))
     async with aiohttp.ClientSession() as session:
         async with session.post(
-            f"{BASE}/uchrashuvlar/api/",
+            f"{BASE}/uchrashuvlar/api/list/",
             data=data,
             headers={"Authorization": f"Token {token}"}
         ) as resp:
@@ -110,7 +110,7 @@ async def verify_meeting(token: str, meeting_id: int, action: str, reason: str =
 async def get_my_meetings(token: str) -> list:
     async with aiohttp.ClientSession() as session:
         async with session.get(
-            f"{BASE}/uchrashuvlar/api/",
+            f"{BASE}/uchrashuvlar/api/list/",
             headers={"Authorization": f"Token {token}"}
         ) as resp:
             data = await resp.json()

@@ -43,10 +43,12 @@ def main_keyboard(role: str) -> ReplyKeyboardMarkup:
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
     if role == "yetakchi":
         kb.row(KeyboardButton("📊 Umumiy statistika"), KeyboardButton("👥 Biriktirilgan yoshlar"))
-        kb.row(KeyboardButton("🤝 Uchrashuvlar"), KeyboardButton("🖥 Web bot"))
-    elif role == "rahbar":
-        kb.row(KeyboardButton("📊 Umumiy statistika"), KeyboardButton("👨‍🏫 Yoshlar yetakchilari"))
+        kb.row(KeyboardButton("➕ Uchrashuv o'tkazish"), KeyboardButton("🤝 Uchrashuvlar"))
         kb.add(KeyboardButton("🖥 Web bot"))
+    elif role == "rahbar":
+        kb.row(KeyboardButton("📊 Umumiy statistika"), KeyboardButton("👥 Biriktirilgan yoshlar"))
+        kb.row(KeyboardButton("➕ Uchrashuv o'tkazish"), KeyboardButton("👨‍🏫 Yoshlar yetakchilari"))
+        kb.row(KeyboardButton("🤝 Uchrashuvlar"), KeyboardButton("🖥 Web bot"))
     elif role in ("admin", "super_admin"):
         kb.row(KeyboardButton("📊 Umumiy statistika"), KeyboardButton("👨‍🏫 Yoshlar yetakchilari"))
         kb.row(KeyboardButton("👥 Foydalanuvchilar"), KeyboardButton("✅ Tasdiqlash"))
@@ -275,18 +277,18 @@ async def my_profile(message: types.Message):
     )
 
 
-# ==================== RAHBAR: UCHRASHUV YARATISH ====================
+# ==================== UCHRASHUV O'TKAZISH (rahbar va yetakchi) ====================
 
-@dp.message_handler(lambda m: m.text == "➕ Uchrashuv yaratish", state="*")
+@dp.message_handler(lambda m: m.text == "➕ Uchrashuv o'tkazish", state="*")
 async def start_create_meeting(message: types.Message, state: FSMContext):
     user = message.from_user
     me = _user_cache.get(user.id)
-    if not me or me.get("role") != "rahbar":
-        await message.answer("Bu funksiya faqat Rahbarlar uchun.")
+    if not me or me.get("role") not in ("rahbar", "yetakchi"):
+        await message.answer("Bu funksiya faqat Rahbar va Yetakchilar uchun.")
         return
     token = await get_token(user.id, user.full_name, user.username)
     try:
-        youth_list = await get_my_youth(token)
+        youth_list = await get_my_youth_stats(token)
         if not youth_list:
             await message.answer("Sizga biriktirilgan yoshlar yo'q. Admin bilan bog'laning.")
             return
