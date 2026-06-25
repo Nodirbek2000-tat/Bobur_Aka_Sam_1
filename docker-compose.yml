@@ -23,6 +23,8 @@ services:
     container_name: SurveyBot_Bot
     environment:
       - BOT_TOKEN=${BOT_TOKEN}
+      - YOUTHGUARD_API_URL=https://sam-auth.uz
+      - YOUTHGUARD_BOT_SECRET=youthguard-bot-secret-2024
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_NAME=survey_bot

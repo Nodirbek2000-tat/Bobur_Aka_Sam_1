@@ -51,13 +51,14 @@ async def process_contact(message: types.Message, state: FSMContext):
         from handlers.users.youthguard import show_yg_menu
         await show_yg_menu(message, me, token)
     else:
-        # Oddiy foydalanuvchi — so'rovnoma oqimiga o'tadi
+        # Oddiy foydalanuvchi — ro'yxatdan o'tdi, lekin funksional tugmalar yo'q
         await message.answer(
-            "✅ Raqamingiz qabul qilindi!\n\n"
-            "Botdan foydalanish uchun davom etamiz..."
+            "✅ <b>Ro'yxatdan o'tdingiz!</b>\n\n"
+            "Ma'lumotlaringiz qabul qilindi. Tizimda sizga rol "
+            "(rahbar yoki yetakchi) biriktirilgandan so'ng imkoniyatlar ochiladi.\n\n"
+            "Hozircha boshqa amallar mavjud emas.",
+            reply_markup=ReplyKeyboardRemove()
         )
-        from handlers.users.start import survey_start
-        await survey_start(message, state)
 
 
 @dp.message_handler(state=PhoneRegisterState.waiting_phone)

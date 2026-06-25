@@ -117,3 +117,30 @@ async def get_my_meetings(token: str) -> list:
             if isinstance(data, list):
                 return data
             return data.get("results", [])
+
+
+async def _get(path: str, token: str):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(
+            f"{BASE}{path}",
+            headers={"Authorization": f"Token {token}"}
+        ) as resp:
+            return await resp.json()
+
+
+async def get_my_youth_stats(token: str) -> list:
+    data = await _get("/uchrashuvlar/api/my-youth/", token)
+    return data if isinstance(data, list) else []
+
+
+async def get_youth_stats(token: str, youth_id: int) -> dict:
+    return await _get(f"/uchrashuvlar/api/youth/{youth_id}/stats/", token)
+
+
+async def get_my_yetakchilar(token: str) -> list:
+    data = await _get("/uchrashuvlar/api/my-yetakchilar/", token)
+    return data if isinstance(data, list) else []
+
+
+async def get_my_stats(token: str) -> dict:
+    return await _get("/uchrashuvlar/api/my-stats/", token)

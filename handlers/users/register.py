@@ -183,7 +183,7 @@ async def send_question(message: types.Message, state: FSMContext, edit: bool = 
             sid = await create_camera_session(message.chat.id)
             cam_url = f"{YOUTHGUARD_API_URL}/uchrashuvlar/camera/{sid}/"
             kb = types.InlineKeyboardMarkup()
-            kb.add(types.InlineKeyboardButton("📷 Kamerani ochish", url=cam_url))
+            kb.add(types.InlineKeyboardButton("📷 Kamerani ochish", web_app=types.WebAppInfo(url=cam_url)))
             kb.add(types.InlineKeyboardButton("✅ Rasmlarni yubordim", callback_data=f"camera_done:{sid}"))
             if edit:
                 await message.edit_text(text, reply_markup=kb)

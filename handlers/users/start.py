@@ -15,8 +15,9 @@ async def cmd_start(message: types.Message, state: FSMContext):
         from utils.youthguard_api import check_telegram
         info = await check_telegram(message.from_user.id)
     except Exception:
-        # DRF ulanmadi — eski (so'rovnoma) rejimida ishlaymiz
-        await survey_start(message, state)
+        await message.answer(
+            "⚠️ Tizimga ulanib bo'lmadi. Birozdan so'ng /start bosing."
+        )
         return
 
     if info.get("exists"):
@@ -27,8 +28,13 @@ async def cmd_start(message: types.Message, state: FSMContext):
             await show_yg_menu(message, info.get("user", {}), info.get("token"))
             return
         if info.get("has_phone"):
-            # Oddiy, ro'yxatdan o'tgan foydalanuvchi — so'rovnoma oqimi
-            await survey_start(message, state)
+            # Oddiy, ro'yxatdan o'tgan foydalanuvchi — funksional tugmalar yo'q
+            from aiogram.types import ReplyKeyboardRemove
+            await message.answer(
+                "✅ <b>Siz ro'yxatdan o'tgansiz.</b>\n\n"
+                "Tizimda sizga rol biriktirilgandan so'ng imkoniyatlar ochiladi.",
+                reply_markup=ReplyKeyboardRemove()
+            )
             return
 
     # 2) Hali ro'yxatdan o'tmagan — telefon raqam so'raymiz

@@ -1,11 +1,23 @@
 from aiogram import types
 from aiogram.dispatcher import FSMContext
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 
 from loader import dp
 from data.config import YOUTHGUARD_API_URL
+
+
+def webapp_kb(text: str, token: str, path: str = "") -> InlineKeyboardMarkup:
+    """Telegram ichida ochiladigan Web App tugmasi (link emas)."""
+    url = f"{YOUTHGUARD_API_URL}/accounts/magic/{token}/"
+    if path:
+        url += f"?next={path}"
+    kb = InlineKeyboardMarkup()
+    kb.add(InlineKeyboardButton(text, web_app=WebAppInfo(url=url)))
+    return kb
 from states.states import YouthGuardMeetingState, YouthGuardVerifyState
-from utils.youthguard_api import get_token, get_my_youth, create_meeting, get_pending_verifications, verify_meeting, get_my_meetings
+from utils.youthguard_api import (get_token, get_my_youth, create_meeting, get_pending_verifications,
+                                  verify_meeting, get_my_meetings, get_my_youth_stats, get_youth_stats,
+                                  get_my_yetakchilar, get_my_stats)
 
 _user_cache = {}
 _photo_cache = {}
@@ -29,16 +41,16 @@ ROLE_ICONS = {
 
 def main_keyboard(role: str) -> ReplyKeyboardMarkup:
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
-    if role == "rahbar":
-        kb.add(KeyboardButton("➕ Uchrashuv yaratish"))
-        kb.add(KeyboardButton("📋 Mening uchrashuvlarim"))
-    elif role == "yetakchi":
-        kb.add(KeyboardButton("✅ Tasdiqlash kutmoqda"))
-        kb.add(KeyboardButton("📋 Barcha uchrashuvlar"))
+    if role == "yetakchi":
+        kb.row(KeyboardButton("📊 Umumiy statistika"), KeyboardButton("👥 Biriktirilgan yoshlar"))
+        kb.row(KeyboardButton("🤝 Uchrashuvlar"), KeyboardButton("🖥 Web bot"))
+    elif role == "rahbar":
+        kb.row(KeyboardButton("📊 Umumiy statistika"), KeyboardButton("👨‍🏫 Yoshlar yetakchilari"))
+        kb.add(KeyboardButton("🖥 Web bot"))
     elif role in ("admin", "super_admin"):
-        kb.add(KeyboardButton("📊 Statistika"))
-        kb.add(KeyboardButton("✅ Tasdiqlash kutmoqda"))
-        kb.add(KeyboardButton("👥 Foydalanuvchilar"))
+        kb.row(KeyboardButton("📊 Umumiy statistika"), KeyboardButton("👨‍🏫 Yoshlar yetakchilari"))
+        kb.row(KeyboardButton("👥 Foydalanuvchilar"), KeyboardButton("✅ Tasdiqlash"))
+        kb.add(KeyboardButton("🖥 Web bot"))
     kb.add(KeyboardButton("ℹ️ Mening profilim"))
     return kb
 
@@ -49,10 +61,6 @@ async def show_yg_menu(message: types.Message, me: dict, token: str):
     _user_cache[user.id] = me
     role = me.get("role", "")
 
-    web_url = f"{YOUTHGUARD_API_URL}/accounts/magic/{token}/"
-    web_kb = InlineKeyboardMarkup()
-    web_kb.add(InlineKeyboardButton("🌐 Web saytga kirish", url=web_url))
-
     await message.answer(
         f"🌟 <b>YouthGuard tizimiga xush kelibsiz!</b>\n\n"
         f"👤 Ism: <b>{me.get('full_name') or user.full_name}</b>\n"
@@ -62,13 +70,13 @@ async def show_yg_menu(message: types.Message, me: dict, token: str):
     )
     if role in ("super_admin", "admin"):
         await message.answer(
-            "🔗 Boshqaruv panelini (web bot) ochish uchun tugmani bosing:",
-            reply_markup=web_kb
+            "🖥 Boshqaruv panelini ochish uchun tugmani bosing:",
+            reply_markup=webapp_kb("🖥 Web botni ochish", token)
         )
     else:
         await message.answer(
-            "🔗 Web saytni ochish uchun tugmani bosing:",
-            reply_markup=web_kb
+            "🖥 Web botni ochish uchun tugmani bosing:",
+            reply_markup=webapp_kb("🖥 Web botni ochish", token)
         )
 
 
@@ -107,14 +115,146 @@ async def yg_users_list(message: types.Message):
         await message.answer("Bu bo'lim faqat Admin/Super Admin uchun.")
         return
     token = await get_token(user.id, user.full_name, user.username)
-    web_url = f"{YOUTHGUARD_API_URL}/accounts/magic/{token}/?next=/accounts/users/"
-    kb = InlineKeyboardMarkup()
-    kb.add(InlineKeyboardButton("👥 Foydalanuvchilarni ochish", url=web_url))
     await message.answer(
         "👥 <b>Foydalanuvchilar ro'yxati</b>\n\n"
         "Barcha admin, rahbar, yetakchi va oddiy foydalanuvchilarni "
-        "web panelda ko'rish va boshqarish uchun tugmani bosing:",
-        reply_markup=kb
+        "ko'rish va boshqarish uchun tugmani bosing:",
+        reply_markup=webapp_kb("👥 Foydalanuvchilarni ochish", token, "/accounts/users/")
+    )
+
+
+@dp.message_handler(lambda m: m.text == "📊 Umumiy statistika", state="*")
+async def yg_statistika(message: types.Message):
+    user = message.from_user
+    me = _user_cache.get(user.id)
+    if not me:
+        await message.answer("Avval /start bosing.")
+        return
+    token = await get_token(user.id, user.full_name, user.username)
+    try:
+        s = await get_my_stats(token)
+        await message.answer(
+            f"📊 <b>Umumiy statistika</b>\n\n"
+            f"👥 Biriktirilgan yoshlar: <b>{s.get('youth_count', 0)}</b>\n"
+            f"🤝 Jami uchrashuvlar: <b>{s.get('total_meetings', 0)}</b>\n"
+            f"📅 Bu oyda: <b>{s.get('this_month', 0)}</b>\n"
+            f"✅ Tasdiqlangan: <b>{s.get('verified', 0)}</b>\n"
+            f"⏳ Kutilmoqda: <b>{s.get('pending', 0)}</b>",
+            reply_markup=webapp_kb("📊 Batafsil (web bot)", token, "/uchrashuvlar/statistika/")
+        )
+    except Exception as e:
+        await message.answer(f"❌ Xato: {e}")
+
+
+@dp.message_handler(lambda m: m.text == "👥 Biriktirilgan yoshlar", state="*")
+async def yg_my_youth(message: types.Message):
+    user = message.from_user
+    me = _user_cache.get(user.id)
+    if not me:
+        await message.answer("Avval /start bosing.")
+        return
+    token = await get_token(user.id, user.full_name, user.username)
+    try:
+        youths = await get_my_youth_stats(token)
+        if not youths:
+            await message.answer("Sizga biriktirilgan yoshlar yo'q.")
+            return
+        await message.answer(f"👥 <b>Biriktirilgan yoshlar:</b> {len(youths)} ta\n\nBatafsil ko'rish uchun bosing:")
+        for y in youths[:30]:
+            kb = InlineKeyboardMarkup()
+            kb.add(InlineKeyboardButton(
+                f"🤝 {y.get('this_month', 0)} (bu oy) · jami {y.get('total_meetings', 0)}",
+                callback_data=f"yg_youth:{y['id']}"
+            ))
+            last = y.get("last_date")
+            last_txt = f"📅 oxirgi: {last} ({y.get('days_ago')} kun oldin)" if last else "📅 hali uchrashuv yo'q"
+            await message.answer(
+                f"👤 <b>{y['full_name']}</b>\n{last_txt}",
+                reply_markup=kb
+            )
+    except Exception as e:
+        await message.answer(f"❌ Xato: {e}")
+
+
+@dp.callback_query_handler(lambda c: c.data.startswith("yg_youth:"))
+async def yg_youth_detail(call: types.CallbackQuery):
+    youth_id = int(call.data.split(":")[1])
+    user = call.from_user
+    token = await get_token(user.id, user.full_name, user.username)
+    try:
+        d = await get_youth_stats(token, youth_id)
+        text = (
+            f"👤 <b>{d.get('full_name', '-')}</b>\n"
+            f"🎂 Yosh: {d.get('age', '-')} | 📁 {d.get('category', '-')}\n"
+            f"🏢 {d.get('organization', '-')}\n\n"
+            f"🤝 Jami uchrashuvlar: <b>{d.get('total_meetings', 0)}</b>\n"
+            f"📅 Bu oyda: <b>{d.get('this_month', 0)}</b>\n\n"
+        )
+        meetings = d.get("meetings", [])
+        if meetings:
+            text += "<b>So'nggi uchrashuvlar:</b>\n"
+            for m in meetings[:10]:
+                text += f"• {m['date']} — {m['status']} ({m['days_ago']} kun oldin)\n"
+        else:
+            text += "Hali uchrashuv o'tkazilmagan."
+        await call.message.answer(text)
+    except Exception as e:
+        await call.answer(f"Xato: {e}", show_alert=True)
+    await call.answer()
+
+
+@dp.message_handler(lambda m: m.text == "👨‍🏫 Yoshlar yetakchilari", state="*")
+async def yg_yetakchilar(message: types.Message):
+    user = message.from_user
+    me = _user_cache.get(user.id)
+    if not me or me.get("role") not in ("rahbar", "admin", "super_admin"):
+        await message.answer("Bu bo'lim faqat Rahbar/Admin uchun.")
+        return
+    token = await get_token(user.id, user.full_name, user.username)
+    try:
+        yetakchilar = await get_my_yetakchilar(token)
+        if not yetakchilar:
+            await message.answer("Yetakchilar topilmadi.")
+            return
+        text = f"👨‍🏫 <b>Yoshlar yetakchilari:</b> {len(yetakchilar)} ta\n\n"
+        for i, y in enumerate(yetakchilar[:30], 1):
+            text += (
+                f"{i}. <b>{y['name']}</b>\n"
+                f"   👥 {y['youth_count']} yosh · 🤝 {y['total_meetings']} uchrashuv "
+                f"(bu oy: {y['this_month']})\n\n"
+            )
+        await message.answer(text)
+    except Exception as e:
+        await message.answer(f"❌ Xato: {e}")
+
+
+@dp.message_handler(lambda m: m.text == "🤝 Uchrashuvlar", state="*")
+async def yg_uchrashuvlar(message: types.Message):
+    user = message.from_user
+    me = _user_cache.get(user.id)
+    if not me:
+        await message.answer("Avval /start bosing.")
+        return
+    token = await get_token(user.id, user.full_name, user.username)
+    await message.answer(
+        "🤝 <b>Uchrashuvlar</b>\n\n"
+        "Barcha uchrashuvlar, rasmlar, holatlar va hujjatlarni "
+        "ko'rish uchun web botni oching:",
+        reply_markup=webapp_kb("🤝 Uchrashuvlarni ochish", token, "/uchrashuvlar/")
+    )
+
+
+@dp.message_handler(lambda m: m.text == "🖥 Web bot", state="*")
+async def yg_webbot(message: types.Message):
+    user = message.from_user
+    me = _user_cache.get(user.id)
+    if not me:
+        await message.answer("Avval /start bosing.")
+        return
+    token = await get_token(user.id, user.full_name, user.username)
+    await message.answer(
+        "🖥 <b>Web bot</b>\n\nTo'liq boshqaruv panelini Telegram ichida oching:",
+        reply_markup=webapp_kb("🖥 Web botni ochish", token)
     )
 
 
@@ -301,7 +441,7 @@ async def my_meetings(message: types.Message):
 
 # ==================== YETAKCHI: TASDIQLASH ====================
 
-@dp.message_handler(lambda m: m.text in ("✅ Tasdiqlash kutmoqda", "📋 Barcha uchrashuvlar"), state="*")
+@dp.message_handler(lambda m: m.text in ("✅ Tasdiqlash", "✅ Tasdiqlash kutmoqda", "📋 Barcha uchrashuvlar"), state="*")
 async def pending_verifications(message: types.Message):
     user = message.from_user
     me = _user_cache.get(user.id)
