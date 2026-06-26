@@ -144,3 +144,11 @@ async def get_my_yetakchilar(token: str) -> list:
 
 async def get_my_stats(token: str) -> dict:
     return await _get("/uchrashuvlar/api/my-stats/", token)
+
+
+async def get_active_survey(token: str) -> dict:
+    """Faol so'rovnomani va savollarni qaytaradi."""
+    try:
+        return await _get("/sorovnoma/api/active/", token)
+    except Exception:
+        return {"active": False}

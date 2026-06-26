@@ -75,6 +75,7 @@ class YouthGuardMeetingState(StatesGroup):
     sending_location = State()
     sending_photo = State()
     adding_notes = State()
+    answering_survey = State()  # Web botdan boshlangan so'rovnoma oqimi
 
 
 class YouthGuardVerifyState(StatesGroup):
